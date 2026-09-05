@@ -11,6 +11,8 @@ if [[ -f "$ENV_FILE" ]]; then
   set +a
 fi
 
+# Historical variable name is kept for compatibility with existing installs.
+# It now applies to BOTH video and image media below recordings/.
 RETENTION_DAYS="${VIDEO_RETENTION_DAYS:-7}"
 RECORDING_ROOT="${RECORDING_ROOT:-$APP/recordings}"
 
@@ -24,11 +26,13 @@ if [[ ! -d "$RECORDING_ROOT" ]]; then
   exit 0
 fi
 
-# Delete video files whose last modification is older than the retention window.
-# Snapshots/images are intentionally preserved.
+# IMPORTANT:
+# Videos and images under recordings/ are temporary camera media. They are
+# deleted when their last modification time is older than the retention window.
+# .gitkeep placeholders and non-media files are not removed by this job.
 MINUTES=$(( RETENTION_DAYS * 24 * 60 ))
 
-echo "Video cleanup: root=$RECORDING_ROOT retention=${RETENTION_DAYS}d"
+echo "Media cleanup: root=$RECORDING_ROOT retention=${RETENTION_DAYS}d (video + image)"
 
 find "$RECORDING_ROOT" -xdev -type f \
   \( \
@@ -40,7 +44,15 @@ find "$RECORDING_ROOT" -xdev -type f \
     -iname '*.avi' -o \
     -iname '*.webm' -o \
     -iname '*.ts' -o \
-    -iname '*.m4v' \
+    -iname '*.m4v' -o \
+    -iname '*.jpg' -o \
+    -iname '*.jpeg' -o \
+    -iname '*.png' -o \
+    -iname '*.webp' -o \
+    -iname '*.bmp' -o \
+    -iname '*.gif' -o \
+    -iname '*.tif' -o \
+    -iname '*.tiff' \
   \) \
   -mmin "+$MINUTES" \
   -print \
@@ -49,4 +61,4 @@ find "$RECORDING_ROOT" -xdev -type f \
 # Remove empty recording subdirectories left behind by future date-based layouts.
 find "$RECORDING_ROOT" -xdev -mindepth 1 -depth -type d -empty -delete 2>/dev/null || true
 
-echo "Video cleanup complete."
+echo "Media cleanup complete."

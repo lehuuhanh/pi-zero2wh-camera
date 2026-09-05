@@ -47,7 +47,7 @@ https://github.com/lehuuhanh/pi-zero2wh-camera/archive/refs/heads/main.zip
 Copy it to the Pi:
 
 ```powershell
-scp "C:\Users\Hanh\Downloads\pi-zero2wh-camera-main.zip" pi@PI_IP:/home/pi/
+scp "C:\Users\user\Downloads\pi-zero2wh-camera-main.zip" pi@PI_IP:/home/pi/
 ```
 
 On Raspberry Pi OS Lite:

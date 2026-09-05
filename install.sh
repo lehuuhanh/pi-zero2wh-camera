@@ -52,6 +52,17 @@ if [[ "$MODEL" != *"Raspberry Pi Zero 2"* ]]; then
   echo "WARNING: this project is tuned for Raspberry Pi Zero 2 W/WH."
 fi
 
+EXPECTED_SENSOR="${CAMERA_SENSOR:-imx500}"
+BOOT_AUTO_DETECT="${CAMERA_BOOT_AUTO_DETECT:-0}"
+BOOT_OVERLAY="${CAMERA_BOOT_OVERLAY:-imx500}"
+
+if [[ "$EXPECTED_SENSOR" != "imx500" ]]; then
+  echo "WARNING: CAMERA_SENSOR=$EXPECTED_SENSOR; this project is designed for IMX500."
+fi
+if [[ "$BOOT_OVERLAY" != "imx500" ]]; then
+  echo "WARNING: CAMERA_BOOT_OVERLAY=$BOOT_OVERLAY; expected imx500."
+fi
+
 install -d -o pi -g pi \
   "$APP/recordings/manual" \
   "$APP/recordings/events" \
@@ -71,19 +82,23 @@ BOOTCFG=""
 REBOOT_NEEDED=0
 
 if [[ "${FORCE_IMX500_OVERLAY:-1}" == "1" && -n "$BOOTCFG" ]]; then
-  if ! grep -qE '^[[:space:]]*camera_auto_detect=0([[:space:]]|$)' "$BOOTCFG" ||
-     ! grep -qE '^[[:space:]]*dtoverlay=imx500([[:space:]]|$)' "$BOOTCFG"; then
+  desired_auto="camera_auto_detect=${BOOT_AUTO_DETECT}"
+  desired_overlay="dtoverlay=${BOOT_OVERLAY}"
+
+  if ! grep -qE "^[[:space:]]*camera_auto_detect=${BOOT_AUTO_DETECT}([[:space:]]|$)" "$BOOTCFG" ||
+     ! grep -qE "^[[:space:]]*dtoverlay=${BOOT_OVERLAY}([[:space:]]|$)" "$BOOTCFG"; then
     cp -a "$BOOTCFG" "$BOOTCFG.zero2-camera.$(date +%Y%m%d-%H%M%S).bak"
 
     if grep -qE '^[[:space:]]*camera_auto_detect=' "$BOOTCFG"; then
-      sed -i 's/^[[:space:]]*camera_auto_detect=.*/camera_auto_detect=0/' "$BOOTCFG"
+      sed -i "s/^[[:space:]]*camera_auto_detect=.*/${desired_auto}/" "$BOOTCFG"
     else
-      printf '\ncamera_auto_detect=0\n' >> "$BOOTCFG"
+      printf '\n%s\n' "$desired_auto" >> "$BOOTCFG"
     fi
 
-    if ! grep -qE '^[[:space:]]*dtoverlay=imx500([[:space:]]|$)' "$BOOTCFG"; then
-      printf 'dtoverlay=imx500\n' >> "$BOOTCFG"
-    fi
+    # Keep commented historical overlay lines untouched, but ensure exactly
+    # one active configured overlay exists.
+    sed -i "/^[[:space:]]*dtoverlay=${BOOT_OVERLAY}[[:space:]]*$/d" "$BOOTCFG"
+    printf '%s\n' "$desired_overlay" >> "$BOOTCFG"
 
     REBOOT_NEEDED=1
   fi
@@ -131,11 +146,20 @@ systemctl enable --now zero2-camera-cleanup.timer
 
 if (( REBOOT_NEEDED )); then
   echo
-  echo "IMX500 overlay changed. Reboot required:"
+  echo "IMX500 boot configuration changed. Reboot required:"
   echo "  sudo reboot"
 else
-  systemctl restart zero2-camera-worker
-  sleep 8
+  # Do not hide a physical camera/RP2040 probe failure behind a Python crash.
+  if rpicam-hello --list-cameras 2>&1 | grep -qi "$EXPECTED_SENSOR"; then
+    systemctl restart zero2-camera-worker
+    sleep 8
+  else
+    echo
+    echo "WARNING: expected camera '$EXPECTED_SENSOR' is not enumerated by libcamera."
+    echo "Worker was not restarted. Run:"
+    echo "  $APP/scripts/diagnose-imx500.sh"
+  fi
+
   systemctl restart zero2-camera-web
 
   if [[ -f /etc/nginx/sites-enabled/zero2-camera.conf ]]; then
@@ -148,6 +172,7 @@ chown -R pi:pi "$APP/config" "$APP/models" "$APP/recordings" "$APP/data"
 
 echo
 echo "Installed: $APP"
+echo "Camera sensor: ${EXPECTED_SENSOR}; overlay=${BOOT_OVERLAY}; auto-detect=${BOOT_AUTO_DETECT}"
 echo "AI: ${AI_ENABLED:-1}; model=${AI_MODEL_PATH:-$APP/models/yolov8n.rpk}"
 echo "AI prebuffer: ${AI_PREBUFFER_SECONDS:-3}s"
 echo "Video retention: ${VIDEO_RETENTION_DAYS:-7} days"

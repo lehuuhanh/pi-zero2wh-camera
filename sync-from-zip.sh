@@ -48,6 +48,11 @@ else
   SOURCE="$SELF_DIR"
 fi
 
+# Validate the new package before replacing the installed source.
+if [[ -f "$SOURCE/scripts/static-check.sh" ]]; then
+  bash "$SOURCE/scripts/static-check.sh" "$SOURCE"
+fi
+
 if [[ "$(readlink -f "$SOURCE")" == "$(readlink -f "$APP" 2>/dev/null || true)" ]]; then
   echo "Source already is $APP; no file copy required."
 else

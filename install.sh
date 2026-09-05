@@ -37,7 +37,7 @@ apt update
 apt install -y \
   imx500-all rpicam-apps python3-picamera2 python3-libcamera \
   python3-pil python3-flask python3-requests python3-waitress \
-  nginx openssl apache2-utils ffmpeg
+  nginx openssl apache2-utils ffmpeg unzip rsync
 
 install -d -o pi -g pi "$APP"
 cp -a "$SRC"/. "$APP"/
@@ -45,8 +45,10 @@ chown -R pi:pi "$APP"
 chmod +x \
   "$APP"/install.sh \
   "$APP"/uninstall.sh \
+  "$APP"/sync-from-zip.sh \
   "$APP"/scripts/healthcheck.sh \
-  "$APP"/scripts/cleanup-videos.sh
+  "$APP"/scripts/cleanup-videos.sh \
+  "$APP"/scripts/build-zip.sh
 
 BOOTCFG=""
 [[ -f /boot/firmware/config.txt ]] && BOOTCFG=/boot/firmware/config.txt
@@ -116,6 +118,7 @@ fi
 
 echo
 echo "Installed to $APP"
+echo "ZIP updates: sudo $APP/sync-from-zip.sh /home/pi/pi-zero2wh-camera.zip"
 echo "Video retention: ${VIDEO_RETENTION_DAYS:-7} days; cleanup timer runs daily."
 echo "Check timer: systemctl list-timers zero2-camera-cleanup.timer"
 echo "Run cleanup now: sudo systemctl start zero2-camera-cleanup.service"

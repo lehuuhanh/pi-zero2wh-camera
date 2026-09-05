@@ -2,7 +2,7 @@
 
 Low-memory Raspberry Pi Zero 2 W/WH camera project for the Raspberry Pi AI Camera (Sony IMX500), Raspberry Pi OS 64-bit, and headless/OS Lite systems.
 
-This project keeps the existing Flask + HTTPS + ZIP-sync workflow and now combines selected ideas from `LukeDitria/mini_ai_camera`:
+This project keeps the Flask + HTTPS + ZIP-sync workflow and selected ideas from `LukeDitria/mini_ai_camera`:
 
 - IMX500 YOLO object detection
 - class filtering
@@ -36,7 +36,68 @@ HTTPS              443
 
 The AI inference runs on IMX500. The Zero 2 CPU is mainly used for web, JPEG generation, event control and file handling.
 
-## Easiest first install from ZIP
+## Fast OS-Python install / update
+
+Unlike `camera-app`, this Zero 2 project intentionally uses Raspberry Pi OS Python directly:
+
+```text
+/usr/bin/python3
+```
+
+There is no project venv and the installer does not run pip. Both worker and web services use OS-managed Python packages such as:
+
+```text
+python3-picamera2
+python3-libcamera
+python3-pil
+python3-numpy
+python3-flask
+python3-requests
+python3-waitress
+```
+
+This avoids rebuilding or duplicating Python environments on the 512 MB Pi Zero 2 W/WH and keeps Picamera2/libcamera on the Raspberry Pi OS package ABI.
+
+`install.sh` now checks actual installed packages instead of blindly reinstalling everything:
+
+```text
+package missing                    -> install only that package
+installed version < apt candidate -> upgrade only that old package
+already current                   -> skip install/upgrade
+```
+
+APT metadata is cached with:
+
+```text
+/var/lib/zero2-camera/apt-update.stamp
+```
+
+and is refreshed at most once every 24 hours by default when all required packages are already present. Override for one invocation if needed:
+
+```bash
+sudo APT_REFRESH_HOURS=6 /home/pi/pi-zero2wh-camera/install.sh
+```
+
+Repeated install/update also skips work that is already current:
+
+```text
+AI model already present          -> skip download
+IMX500 boot config already right  -> skip rewrite/backup
+systemd units unchanged           -> skip copy + daemon-reload
+TLS certificate already present   -> skip regeneration
+Nginx config unchanged            -> skip copy/reload
+source/settings unchanged         -> skip worker/web restart
+```
+
+Installation state is stored at:
+
+```text
+/var/lib/zero2-camera/install-state.env
+```
+
+`requirements.txt` is documentation only for this project; it is not passed to pip.
+
+## First install from ZIP
 
 On Windows download:
 
@@ -53,9 +114,6 @@ scp "C:\Users\user\Downloads\pi-zero2wh-camera-main.zip" pi@PI_IP:/home/pi/
 On Raspberry Pi OS Lite:
 
 ```bash
-sudo apt update
-sudo apt install -y unzip
-
 mkdir -p /home/pi/zero2-install
 unzip -q /home/pi/pi-zero2wh-camera-main.zip -d /home/pi/zero2-install
 
@@ -63,6 +121,8 @@ cd /home/pi/zero2-install/pi-zero2wh-camera-main
 chmod +x sync-from-zip.sh
 sudo ./sync-from-zip.sh
 ```
+
+If `unzip` or `rsync` is missing, the ZIP updater installs only the missing tool.
 
 Edit the local configuration:
 
@@ -76,11 +136,10 @@ Change at least:
 NGINX_BASIC_PASSWORD=your-password
 ```
 
-Then install:
+Then rerun the same optimized installer:
 
 ```bash
-cd /home/pi/pi-zero2wh-camera
-sudo ./install.sh
+sudo /home/pi/pi-zero2wh-camera/install.sh
 ```
 
 If the installer changes the IMX500 overlay:
@@ -102,16 +161,18 @@ Open:
 https://PI_IP/
 ```
 
-## Easiest future update
+## Future ZIP update
 
-Copy a fresh GitHub ZIP from Windows to `/home/pi/`, then run only:
+Copy a fresh GitHub ZIP from Windows to `/home/pi/`, then run:
 
 ```bash
 sudo /home/pi/pi-zero2wh-camera/sync-from-zip.sh \
   /home/pi/pi-zero2wh-camera-main.zip
 ```
 
-The sync preserves:
+The updater uses `rsync --itemize-changes`, preserves runtime state, then enters the same optimized `install.sh` path.
+
+Preserved data:
 
 ```text
 config/settings.env
@@ -120,8 +181,6 @@ data/
 models/*.rpk
 .git/
 ```
-
-It also merges newly introduced settings into the existing `config/settings.env` without overwriting existing values or passwords.
 
 No `git`, `gh auth login`, `git pull`, or GitHub authentication is required on the Pi for ZIP updates.
 
@@ -134,6 +193,8 @@ scripts/install-mini-ai-assets.sh
 ```
 
 downloads the YOLOv8n IMX500 model from the upstream `LukeDitria/mini_ai_camera` repository.
+
+If model and labels already exist, future installer runs skip the download.
 
 Manual install/update:
 
@@ -172,23 +233,7 @@ AI_POSTBUFFER_SECONDS=4
 AI_EVENT_MAX_SECONDS=60
 ```
 
-AI events are written under:
-
-```text
-recordings/events/
-```
-
-Manual recordings remain under:
-
-```text
-recordings/manual/
-```
-
-Snapshots remain under:
-
-```text
-recordings/snapshots/
-```
+AI events are written under `recordings/events/`, manual recordings under `recordings/manual/`, and snapshots under `recordings/snapshots/`.
 
 ## AI settings
 
@@ -212,12 +257,6 @@ AI_PREBUFFER_SECONDS=3
 AI_POSTBUFFER_SECONDS=4
 AI_EVENT_MAX_SECONDS=60
 AI_EVENT_COOLDOWN_SECONDS=3
-```
-
-To monitor only people and cars:
-
-```text
-AI_VALID_CLASSES=person,car
 ```
 
 To disable AI but keep streaming/manual recording:
@@ -293,6 +332,12 @@ systemctl status \
   zero2-camera-cleanup.timer \
   nginx \
   --no-pager -l
+```
+
+Both worker and web use OS Python. The web service starts Waitress with:
+
+```text
+/usr/bin/python3 -m waitress
 ```
 
 Worker log:

@@ -1,0 +1,19 @@
+[Unit]
+Description=Pi Zero 2 WH Camera Web
+After=network-online.target zero2-camera-worker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/pi-zero2wh-camera
+EnvironmentFile=/home/pi/pi-zero2wh-camera/config/settings.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 -m waitress --host=127.0.0.1 --port=8080 --threads=2 web.main:app
+Restart=on-failure
+RestartSec=5
+Nice=8
+
+[Install]
+WantedBy=multi-user.target

@@ -1,5 +1,5 @@
 [Unit]
-Description=Pi Zero 2 Camera video retention cleanup
+Description=Pi Zero 2 Camera media retention cleanup (video + image)
 After=local-fs.target
 
 [Service]

@@ -42,7 +42,11 @@ apt install -y \
 install -d -o pi -g pi "$APP"
 cp -a "$SRC"/. "$APP"/
 chown -R pi:pi "$APP"
-chmod +x "$APP"/install.sh "$APP"/uninstall.sh "$APP"/scripts/healthcheck.sh
+chmod +x \
+  "$APP"/install.sh \
+  "$APP"/uninstall.sh \
+  "$APP"/scripts/healthcheck.sh \
+  "$APP"/scripts/cleanup-videos.sh
 
 BOOTCFG=""
 [[ -f /boot/firmware/config.txt ]] && BOOTCFG=/boot/firmware/config.txt
@@ -64,6 +68,8 @@ fi
 
 install -m 0644 "$APP/systemd/zero2-camera-worker.service" /etc/systemd/system/
 install -m 0644 "$APP/systemd/zero2-camera-web.service" /etc/systemd/system/
+install -m 0644 "$APP/systemd/zero2-camera-cleanup.service" /etc/systemd/system/
+install -m 0644 "$APP/systemd/zero2-camera-cleanup.timer" /etc/systemd/system/
 
 mkdir -p /etc/nginx/certs
 if [[ ! -f /etc/nginx/certs/zero2-camera.key ]]; then
@@ -92,6 +98,7 @@ fi
 
 systemctl daemon-reload
 systemctl enable zero2-camera-worker zero2-camera-web
+systemctl enable --now zero2-camera-cleanup.timer
 
 if (( REBOOT_NEEDED )); then
   echo
@@ -109,5 +116,8 @@ fi
 
 echo
 echo "Installed to $APP"
+echo "Video retention: ${VIDEO_RETENTION_DAYS:-7} days; cleanup timer runs daily."
+echo "Check timer: systemctl list-timers zero2-camera-cleanup.timer"
+echo "Run cleanup now: sudo systemctl start zero2-camera-cleanup.service"
 echo "After reboot test: rpicam-hello --list-cameras"
 echo "Then: sudo systemctl restart zero2-camera-worker zero2-camera-web nginx"

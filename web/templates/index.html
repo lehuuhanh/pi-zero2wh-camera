@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pi Zero 2 WH Camera</title>
+<style>
+:root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color-scheme:dark}body{margin:0;background:#0b1016;color:#e7edf4}.wrap{max-width:980px;margin:auto;padding:16px}.card{background:#121a23;border:1px solid #263444;border-radius:14px;padding:14px;margin-bottom:14px}.top{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}.badge{padding:5px 9px;border-radius:999px;background:#612;color:#fff}.ok{background:#164b2a}.stream{width:100%;aspect-ratio:16/9;background:#000;object-fit:contain;border-radius:10px}.buttons{display:flex;gap:8px;flex-wrap:wrap}button{border:0;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}.primary{background:#2e80ff;color:#fff}.danger{background:#c43f4d;color:#fff}.muted{background:#2b3542;color:#fff}pre{white-space:pre-wrap;word-break:break-word;color:#b8c5d3}.small{font-size:.9rem;color:#9fb0c2}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card top"><div><h2 style="margin:0">Pi Zero 2 WH Camera</h2><div class="small">IMX500 / low-memory profile</div></div><span id="state" class="badge">OFFLINE</span></div>
+  <div class="card"><img id="stream" class="stream" src="/stream.mjpg" alt="Camera stream"></div>
+  <div class="card buttons">
+    <button class="primary" onclick="callApi('/api/snapshot')">Snapshot</button>
+    <button class="primary" onclick="callApi('/api/record/start')">Start recording</button>
+    <button class="danger" onclick="callApi('/api/record/stop')">Stop recording</button>
+    <button class="muted" onclick="location.reload()">Reload</button>
+  </div>
+  <div class="card"><pre id="status">Loading...</pre></div>
+</div>
+<script>
+async function refresh(){
+  try{
+    const r=await fetch('/api/status',{cache:'no-store'}); const j=await r.json();
+    document.getElementById('status').textContent=JSON.stringify(j,null,2);
+    const s=document.getElementById('state'); s.textContent=j.ok?'ONLINE':'OFFLINE'; s.className='badge '+(j.ok?'ok':'');
+  }catch(e){document.getElementById('status').textContent=String(e);}
+}
+async function callApi(url){
+  try{const r=await fetch(url,{method:'POST'}); const j=await r.json(); alert(JSON.stringify(j,null,2)); refresh();}catch(e){alert(String(e));}
+}
+setInterval(refresh,3000); refresh();
+</script>
+</body>
+</html>

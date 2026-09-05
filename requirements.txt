@@ -1,3 +1,18 @@
-Flask>=3.0,<4
-requests>=2.31,<3
-waitress>=3.0,<4
+# Pi Zero 2 WH uses Raspberry Pi OS Python directly: /usr/bin/python3
+# This file is documentation only; install.sh does NOT create a venv and does
+# NOT run pip. Reusing apt-managed Python packages keeps installation fast and
+# preserves Picamera2/libcamera compatibility on the 512 MB Zero 2 W/WH.
+#
+# OS package mapping:
+#   Flask      -> python3-flask
+#   requests   -> python3-requests
+#   waitress   -> python3-waitress
+#   Pillow     -> python3-pil
+#   NumPy      -> python3-numpy
+#   Picamera2  -> python3-picamera2
+#   libcamera  -> python3-libcamera
+#
+# install.sh checks the actual dpkg version of these packages:
+#   missing package                  -> install
+#   installed version < apt candidate -> upgrade only that old package
+#   already at candidate              -> skip

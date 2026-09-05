@@ -1,0 +1,21 @@
+[Unit]
+Description=Pi Zero 2 WH Camera Worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+SupplementaryGroups=video render
+WorkingDirectory=/home/pi/pi-zero2wh-camera
+EnvironmentFile=/home/pi/pi-zero2wh-camera/config/settings.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 /home/pi/pi-zero2wh-camera/ai_worker/worker.py
+Restart=on-failure
+RestartSec=5
+Nice=5
+OOMScoreAdjust=-200
+
+[Install]
+WantedBy=multi-user.target

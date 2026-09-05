@@ -1,0 +1,13 @@
+[Unit]
+Description=Pi Zero 2 Camera video retention cleanup
+After=local-fs.target
+
+[Service]
+Type=oneshot
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/pi-zero2wh-camera
+EnvironmentFile=-/home/pi/pi-zero2wh-camera/config/settings.env
+ExecStart=/home/pi/pi-zero2wh-camera/scripts/cleanup-videos.sh
+Nice=10
+IOSchedulingClass=idle

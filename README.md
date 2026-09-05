@@ -1,41 +1,72 @@
-# Pi Zero 2 WH Camera
+# Pi Zero 2 WH AI Camera
 
-Low-memory Raspberry Pi Zero 2 W/WH camera project, tuned for Raspberry Pi AI Camera (Sony IMX500) on Raspberry Pi OS 64-bit.
+Low-memory Raspberry Pi Zero 2 W/WH camera project for the Raspberry Pi AI Camera (Sony IMX500), Raspberry Pi OS 64-bit, and headless/OS Lite systems.
 
-## Defaults
+This project keeps the existing Flask + HTTPS + ZIP-sync workflow and now combines selected ideas from `LukeDitria/mini_ai_camera`:
 
-- Capture: 1280x720 @ 15 fps
-- Browser MJPEG: 6 fps
-- JPEG quality: 68
-- Picamera2 buffers: 4
-- Worker: Flask on 127.0.0.1:8091
-- Web proxy: Waitress on 127.0.0.1:8080
-- Nginx HTTPS: 443
-- Recording: H.264 from the active low-memory stream
-- Video retention: automatically delete video files older than 7 days
+- IMX500 YOLO object detection
+- class filtering
+- EMA/hysteresis event triggering
+- circular H.264 pre-event buffer
+- automatic AI event video + snapshot
+- bounding boxes in the browser stream
+- low-memory tuning for 512 MB Pi Zero 2 W/WH
+- automatic video retention cleanup
 
-## Easiest install: ZIP, no Git required
+See `THIRD_PARTY_NOTICES.md` for attribution and license details.
 
-This project can be installed and updated on Raspberry Pi OS Lite without GitHub CLI and without `git`.
+## Zero 2 WH defaults
 
-On Windows, download the repository as ZIP or copy a prepared `pi-zero2wh-camera.zip` to the Pi, for example:
-
-```powershell
-scp "C:\Users\Hanh\Downloads\pi-zero2wh-camera.zip" pi@PI_IP:/home/pi/
+```text
+Camera             1280x720 @ 15 fps
+Browser MJPEG      6 fps
+JPEG quality       68
+Picamera2 buffers  4
+AI parse rate      5 IPS
+AI model           YOLOv8n IMX500 .rpk
+Valid classes      person,car,bird,cat,dog
+Pre-event video    3 seconds
+Post-event video   4 seconds
+H.264 bitrate      4 Mbit/s
+Video retention    7 days
+Worker             127.0.0.1:8091
+Web backend        127.0.0.1:8080
+HTTPS              443
 ```
 
-First install on the Pi:
+The AI inference runs on IMX500. The Zero 2 CPU is mainly used for web, JPEG generation, event control and file handling.
+
+## Easiest first install from ZIP
+
+On Windows download:
+
+```text
+https://github.com/lehuuhanh/pi-zero2wh-camera/archive/refs/heads/main.zip
+```
+
+Copy it to the Pi:
+
+```powershell
+scp "C:\Users\Hanh\Downloads\pi-zero2wh-camera-main.zip" pi@PI_IP:/home/pi/
+```
+
+On Raspberry Pi OS Lite:
 
 ```bash
 sudo apt update
 sudo apt install -y unzip
-cd /home/pi
-rm -rf /home/pi/pi-zero2wh-camera-new
-mkdir -p /home/pi/pi-zero2wh-camera-new
-unzip -q /home/pi/pi-zero2wh-camera.zip -d /home/pi/pi-zero2wh-camera-new
-cd /home/pi/pi-zero2wh-camera-new/pi-zero2wh-camera
-chmod +x install.sh sync-from-zip.sh scripts/*.sh
+
+mkdir -p /home/pi/zero2-install
+unzip -q /home/pi/pi-zero2wh-camera-main.zip -d /home/pi/zero2-install
+
+cd /home/pi/zero2-install/pi-zero2wh-camera-main
+chmod +x sync-from-zip.sh
 sudo ./sync-from-zip.sh
+```
+
+Edit the local configuration:
+
+```bash
 nano /home/pi/pi-zero2wh-camera/config/settings.env
 ```
 
@@ -52,7 +83,7 @@ cd /home/pi/pi-zero2wh-camera
 sudo ./install.sh
 ```
 
-If the IMX500 overlay was changed, reboot:
+If the installer changes the IMX500 overlay:
 
 ```bash
 sudo reboot
@@ -62,7 +93,6 @@ After reboot:
 
 ```bash
 rpicam-hello --list-cameras
-sudo systemctl restart zero2-camera-worker zero2-camera-web nginx
 /home/pi/pi-zero2wh-camera/scripts/healthcheck.sh
 ```
 
@@ -72,133 +102,139 @@ Open:
 https://PI_IP/
 ```
 
-## Updating later with one ZIP
+## Easiest future update
 
-Copy the new ZIP from Windows to `/home/pi/pi-zero2wh-camera.zip`, then run only:
+Copy a fresh GitHub ZIP from Windows to `/home/pi/`, then run only:
 
 ```bash
-cd /home/pi/pi-zero2wh-camera
-sudo ./sync-from-zip.sh /home/pi/pi-zero2wh-camera.zip
+sudo /home/pi/pi-zero2wh-camera/sync-from-zip.sh \
+  /home/pi/pi-zero2wh-camera-main.zip
 ```
 
-The ZIP sync updater automatically installs `unzip`/`rsync` if missing, replaces project source files, refreshes systemd units, enables the cleanup timer, and restarts installed camera services.
-
-It deliberately preserves:
+The sync preserves:
 
 ```text
 config/settings.env
 recordings/
 data/
+models/*.rpk
 .git/
 ```
 
-So your password, local settings, recordings, snapshots, and runtime database are not overwritten by an update ZIP.
+It also merges newly introduced settings into the existing `config/settings.env` without overwriting existing values or passwords.
 
-Check after sync:
+No `git`, `gh auth login`, `git pull`, or GitHub authentication is required on the Pi for ZIP updates.
 
-```bash
-/home/pi/pi-zero2wh-camera/scripts/healthcheck.sh
-systemctl status zero2-camera-worker zero2-camera-web --no-pager -l
-```
+## IMX500 YOLO model
 
-## Build a clean ZIP
-
-From a checked-out project directory:
+The binary `.rpk` model is intentionally not committed to this repository. During install or ZIP sync, when AI is enabled and the model is missing:
 
 ```bash
-sudo apt install -y zip rsync
-chmod +x scripts/build-zip.sh
-./scripts/build-zip.sh
+scripts/install-mini-ai-assets.sh
 ```
 
-This creates:
+downloads the YOLOv8n IMX500 model from the upstream `LukeDitria/mini_ai_camera` repository.
 
-```text
-pi-zero2wh-camera.zip
-```
-
-The ZIP excludes `.git`, local `config/settings.env`, recordings, runtime data, Python cache files, and old ZIP output.
-
-## Git install/update is optional
-
-If Git is available, the normal workflow still works:
-
-```bash
-git clone https://github.com/lehuuhanh/pi-zero2wh-camera.git
-cd pi-zero2wh-camera
-cp config/settings.env.example config/settings.env
-chmod 600 config/settings.env
-nano config/settings.env
-sudo ./install.sh
-```
-
-Later:
+Manual install/update:
 
 ```bash
 cd /home/pi/pi-zero2wh-camera
-git pull
+./scripts/install-mini-ai-assets.sh
 ```
 
-`config/settings.env` is intentionally ignored by Git so credentials are not committed.
+Force refresh:
 
-## Automatic video cleanup
+```bash
+./scripts/install-mini-ai-assets.sh --force
+```
 
-By default, all video files under `recordings/` older than 7 days are deleted automatically. The cleanup recognizes `.h264`, `.264`, `.mp4`, `.mkv`, `.mov`, `.avi`, `.webm`, `.ts`, and `.m4v`. Snapshot images are preserved.
+If the download is unavailable, the worker falls back to camera-only mode instead of making the whole camera service unusable.
 
-The retention period is configured in `config/settings.env`:
+## AI event logic
+
+The detector keeps an exponential moving average for each configured class. This avoids starting/stopping events because of one noisy frame.
+
+Defaults:
 
 ```text
-VIDEO_RETENTION_DAYS=7
+AI_EMA_ALPHA=0.25
+AI_EVENT_ACTIVATE=0.60
+AI_EVENT_DEACTIVATE=0.35
 ```
 
-The installer enables `zero2-camera-cleanup.timer`, which runs once per day and is persistent across shutdowns.
+The separate activation/deactivation thresholds provide hysteresis.
 
-Check the next cleanup run:
-
-```bash
-systemctl list-timers zero2-camera-cleanup.timer
-```
-
-Run cleanup immediately:
-
-```bash
-sudo systemctl start zero2-camera-cleanup.service
-```
-
-View cleanup logs:
-
-```bash
-journalctl -u zero2-camera-cleanup.service --no-pager
-```
-
-Test the cleanup script directly:
-
-```bash
-/home/pi/pi-zero2wh-camera/scripts/cleanup-videos.sh
-```
-
-To keep videos for 14 days instead, change:
+When an event starts, the continuously running H.264 circular buffer saves the previous few seconds too:
 
 ```text
-VIDEO_RETENTION_DAYS=14
+AI_PREBUFFER_SECONDS=3
+AI_POSTBUFFER_SECONDS=4
+AI_EVENT_MAX_SECONDS=60
 ```
 
-No service restart is required; the next cleanup reads the updated value.
+AI events are written under:
 
-## Boot configuration
-
-The installer backs up the active `config.txt`, then sets:
-
-```ini
-camera_auto_detect=0
-dtoverlay=imx500
+```text
+recordings/events/
 ```
 
-Set `FORCE_IMX500_OVERLAY=0` before install if you do not want this behavior.
+Manual recordings remain under:
 
-## Memory tuning
+```text
+recordings/manual/
+```
 
-If RAM is still tight, use:
+Snapshots remain under:
+
+```text
+recordings/snapshots/
+```
+
+## AI settings
+
+Main options in `config/settings.env`:
+
+```text
+AI_ENABLED=1
+AI_MODEL_PATH=/home/pi/pi-zero2wh-camera/models/yolov8n.rpk
+AI_LABELS_PATH=/home/pi/pi-zero2wh-camera/models/coco_labels.txt
+AI_VALID_CLASSES=person,car,bird,cat,dog
+AI_CONFIDENCE=0.50
+AI_IOU_THRESHOLD=0.50
+AI_IPS=5
+AI_DRAW_BOXES=1
+AI_EMA_ALPHA=0.25
+AI_EVENT_ACTIVATE=0.60
+AI_EVENT_DEACTIVATE=0.35
+AI_EVENT_VIDEO_ENABLED=1
+AI_EVENT_IMAGE_ENABLED=1
+AI_PREBUFFER_SECONDS=3
+AI_POSTBUFFER_SECONDS=4
+AI_EVENT_MAX_SECONDS=60
+AI_EVENT_COOLDOWN_SECONDS=3
+```
+
+To monitor only people and cars:
+
+```text
+AI_VALID_CLASSES=person,car
+```
+
+To disable AI but keep streaming/manual recording:
+
+```text
+AI_ENABLED=0
+```
+
+Then restart:
+
+```bash
+sudo systemctl restart zero2-camera-worker
+```
+
+## Low-memory tuning
+
+If the Zero 2 WH is short on RAM:
 
 ```text
 CAMERA_WIDTH=960
@@ -207,27 +243,93 @@ CAMERA_FPS=12
 STREAM_FPS=4
 JPEG_QUALITY=62
 BUFFER_COUNT=3
+AI_IPS=3
+AI_DRAW_BOXES=0
+AI_PREBUFFER_SECONDS=2
+RECORD_BITRATE=2500000
 ```
 
-For a headless camera appliance:
+For a headless appliance:
 
 ```bash
 sudo systemctl set-default multi-user.target
 sudo reboot
 ```
 
-## Logs
+## Automatic video cleanup
+
+Video files older than the configured retention period are removed once per day:
+
+```text
+VIDEO_RETENTION_DAYS=7
+```
+
+Check the timer:
+
+```bash
+systemctl list-timers zero2-camera-cleanup.timer
+```
+
+Run immediately:
+
+```bash
+sudo systemctl start zero2-camera-cleanup.service
+```
+
+Logs:
+
+```bash
+journalctl -u zero2-camera-cleanup.service -n 100 --no-pager
+```
+
+Snapshot/JPEG images are preserved by the video retention script.
+
+## Service status
+
+```bash
+systemctl status \
+  zero2-camera-worker \
+  zero2-camera-web \
+  zero2-camera-cleanup.timer \
+  nginx \
+  --no-pager -l
+```
+
+Worker log:
 
 ```bash
 journalctl -u zero2-camera-worker -f
-journalctl -u zero2-camera-web -f
-journalctl -u zero2-camera-cleanup.service --no-pager
 ```
+
+Health:
+
+```bash
+curl -s http://127.0.0.1:8091/health | python3 -m json.tool
+```
+
+## Build a portable ZIP locally
+
+After the AI model has been downloaded, this command also packages the local model into the ZIP so another Pi can be installed without downloading it again:
+
+```bash
+sudo apt install -y zip rsync
+cd /home/pi/pi-zero2wh-camera
+./scripts/build-zip.sh
+```
+
+Output:
+
+```text
+/home/pi/pi-zero2wh-camera/pi-zero2wh-camera.zip
+```
+
+Local credentials, recordings and runtime data are excluded.
 
 ## Uninstall services
 
 ```bash
+cd /home/pi/pi-zero2wh-camera
 sudo ./uninstall.sh
 ```
 
-The uninstall script removes the camera services and cleanup timer but preserves recordings and the project directory.
+Recordings and project data are preserved.

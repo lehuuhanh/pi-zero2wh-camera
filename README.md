@@ -1,3 +1,9 @@
+# ⚠️ ĐỌC KỸ TRƯỚC KHI CÀI ĐẶT — VIDEO VÀ HÌNH ẢNH TRONG `recordings/` CHỈ LƯU 7 NGÀY
+
+> **CẢNH BÁO QUAN TRỌNG:** project này được thiết kế như một camera appliance dung lượng thấp cho Raspberry Pi Zero 2 W/WH. Theo cấu hình mặc định, **video và hình ảnh trong `/home/pi/pi-zero2wh-camera/recordings/` sẽ tự động bị xóa vĩnh viễn khi cũ hơn 7 ngày**. Nếu cần lưu lâu hơn, hãy sao lưu ra NAS/SMB/WebDAV/USB hoặc thay đổi `VIDEO_RETENTION_DAYS` trước khi sử dụng lâu dài.
+>
+> Trước khi cài, nên kiểm tra đúng phần cứng Raspberry Pi AI Camera (Sony IMX500), cáp CSI 15→22 pin cho Pi Zero 2 W/WH, nguồn ổn định, dung lượng thẻ nhớ và việc camera đã được `rpicam-hello --list-cameras` nhận diện. Không xem thư mục `recordings/` là nơi lưu trữ vĩnh viễn.
+
 # Pi Zero 2 WH AI Camera
 
 Low-memory Raspberry Pi Zero 2 W/WH camera project for the Raspberry Pi AI Camera (Sony IMX500), Raspberry Pi OS 64-bit, and headless/OS Lite systems.
@@ -11,7 +17,7 @@ This project keeps the Flask + HTTPS + ZIP-sync workflow and selected ideas from
 - automatic AI event video + snapshot
 - bounding boxes in the browser stream
 - low-memory tuning for 512 MB Pi Zero 2 W/WH
-- automatic video retention cleanup
+- automatic media retention cleanup
 
 See `THIRD_PARTY_NOTICES.md` for attribution and license details.
 
@@ -28,7 +34,7 @@ Valid classes      person,car,bird,cat,dog
 Pre-event video    3 seconds
 Post-event video   4 seconds
 H.264 bitrate      4 Mbit/s
-Video retention    7 days
+Media retention    7 days (video + image)
 Worker             127.0.0.1:8091
 Web backend        127.0.0.1:8080
 HTTPS              443
@@ -58,7 +64,7 @@ python3-waitress
 
 This avoids rebuilding or duplicating Python environments on the 512 MB Pi Zero 2 W/WH and keeps Picamera2/libcamera on the Raspberry Pi OS package ABI.
 
-`install.sh` now checks actual installed packages instead of blindly reinstalling everything:
+`install.sh` checks actual installed packages instead of blindly reinstalling everything:
 
 ```text
 package missing                    -> install only that package
@@ -295,13 +301,26 @@ sudo systemctl set-default multi-user.target
 sudo reboot
 ```
 
-## Automatic video cleanup
+## ⚠️ AUTOMATIC MEDIA CLEANUP — VIDEO + IMAGE CHỈ LƯU 7 NGÀY
 
-Video files older than the configured retention period are removed once per day:
+Mặc định cleanup áp dụng cho **cả video và hình ảnh** bên dưới:
+
+```text
+/home/pi/pi-zero2wh-camera/recordings/
+├── manual/
+├── events/
+└── snapshots/
+```
+
+Thiết lập mặc định:
 
 ```text
 VIDEO_RETENTION_DAYS=7
 ```
+
+Tên biến được giữ lại để tương thích với các bản cài cũ, nhưng hiện tại nó áp dụng cho cả video và image media. Cleanup xóa các định dạng phổ biến như H.264/MP4/MKV/MOV/AVI/WEBM và JPG/JPEG/PNG/WEBP/BMP/GIF/TIFF khi file cũ hơn thời gian retention.
+
+**File bị cleanup sẽ bị xóa vĩnh viễn.** Nếu video hoặc ảnh có giá trị, hãy sao lưu sang thiết bị/host khác trước 7 ngày. `.gitkeep` và các file không phải media không bị job này xóa.
 
 Check the timer:
 
@@ -320,8 +339,6 @@ Logs:
 ```bash
 journalctl -u zero2-camera-cleanup.service -n 100 --no-pager
 ```
-
-Snapshot/JPEG images are preserved by the video retention script.
 
 ## Service status
 
@@ -377,4 +394,4 @@ cd /home/pi/pi-zero2wh-camera
 sudo ./uninstall.sh
 ```
 
-Recordings and project data are preserved.
+Recordings and project data are preserved until the configured retention cleanup removes eligible media files.

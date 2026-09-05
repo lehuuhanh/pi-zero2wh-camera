@@ -1,8 +1,8 @@
-# ⚠️ ĐỌC KỸ TRƯỚC KHI CÀI ĐẶT — VIDEO VÀ HÌNH ẢNH TRONG `recordings/` CHỈ LƯU 7 NGÀY
+# ⚠️ READ BEFORE INSTALLING — VIDEOS AND IMAGES IN `recordings/` ARE KEPT FOR ONLY 7 DAYS
 
-> **CẢNH BÁO QUAN TRỌNG:** project này được thiết kế như một camera appliance dung lượng thấp cho Raspberry Pi Zero 2 W/WH. Theo cấu hình mặc định, **video và hình ảnh trong `/home/pi/pi-zero2wh-camera/recordings/` sẽ tự động bị xóa vĩnh viễn khi cũ hơn 7 ngày**. Nếu cần lưu lâu hơn, hãy sao lưu ra NAS/SMB/WebDAV/USB hoặc thay đổi `VIDEO_RETENTION_DAYS` trước khi sử dụng lâu dài.
+> **IMPORTANT WARNING:** This project is designed as a low-storage camera appliance for Raspberry Pi Zero 2 W/WH. By default, **videos and images stored under `/home/pi/pi-zero2wh-camera/recordings/` are permanently deleted once they are older than 7 days**. If you need longer retention, back up important media to NAS/SMB/WebDAV/USB or change `VIDEO_RETENTION_DAYS` before long-term use.
 >
-> Trước khi cài, nên kiểm tra đúng phần cứng Raspberry Pi AI Camera (Sony IMX500), cáp CSI 15→22 pin cho Pi Zero 2 W/WH, nguồn ổn định, dung lượng thẻ nhớ và việc camera đã được `rpicam-hello --list-cameras` nhận diện. Không xem thư mục `recordings/` là nơi lưu trữ vĩnh viễn.
+> Before installation, verify that you are using the Raspberry Pi AI Camera (Sony IMX500), the correct 15-to-22-pin CSI cable for Raspberry Pi Zero 2 W/WH, a stable power supply, sufficient storage capacity, and that the camera is detected by `rpicam-hello --list-cameras`. Do not treat the `recordings/` directory as permanent storage.
 
 # Pi Zero 2 WH AI Camera
 
@@ -301,9 +301,9 @@ sudo systemctl set-default multi-user.target
 sudo reboot
 ```
 
-## ⚠️ AUTOMATIC MEDIA CLEANUP — VIDEO + IMAGE CHỈ LƯU 7 NGÀY
+## ⚠️ AUTOMATIC MEDIA CLEANUP — VIDEOS AND IMAGES ARE KEPT FOR ONLY 7 DAYS
 
-Mặc định cleanup áp dụng cho **cả video và hình ảnh** bên dưới:
+By default, retention cleanup applies to **both videos and images** under:
 
 ```text
 /home/pi/pi-zero2wh-camera/recordings/
@@ -312,15 +312,15 @@ Mặc định cleanup áp dụng cho **cả video và hình ảnh** bên dưới
 └── snapshots/
 ```
 
-Thiết lập mặc định:
+Default setting:
 
 ```text
 VIDEO_RETENTION_DAYS=7
 ```
 
-Tên biến được giữ lại để tương thích với các bản cài cũ, nhưng hiện tại nó áp dụng cho cả video và image media. Cleanup xóa các định dạng phổ biến như H.264/MP4/MKV/MOV/AVI/WEBM và JPG/JPEG/PNG/WEBP/BMP/GIF/TIFF khi file cũ hơn thời gian retention.
+The variable name is retained for backward compatibility with existing installations, but it now applies to both video and image media. Cleanup removes common formats such as H.264/MP4/MKV/MOV/AVI/WEBM and JPG/JPEG/PNG/WEBP/BMP/GIF/TIFF once a file is older than the configured retention period.
 
-**File bị cleanup sẽ bị xóa vĩnh viễn.** Nếu video hoặc ảnh có giá trị, hãy sao lưu sang thiết bị/host khác trước 7 ngày. `.gitkeep` và các file không phải media không bị job này xóa.
+**Files removed by the cleanup job are permanently deleted.** Back up valuable videos or images to another device or host before the 7-day retention period expires. `.gitkeep` placeholders and non-media files are not removed by this job.
 
 Check the timer:
 

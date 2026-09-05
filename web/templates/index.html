@@ -3,35 +3,25 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Pi Zero 2 WH Camera</title>
+<title>Pi Zero 2 WH AI Camera</title>
 <style>
-:root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color-scheme:dark}body{margin:0;background:#0b1016;color:#e7edf4}.wrap{max-width:980px;margin:auto;padding:16px}.card{background:#121a23;border:1px solid #263444;border-radius:14px;padding:14px;margin-bottom:14px}.top{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}.badge{padding:5px 9px;border-radius:999px;background:#612;color:#fff}.ok{background:#164b2a}.stream{width:100%;aspect-ratio:16/9;background:#000;object-fit:contain;border-radius:10px}.buttons{display:flex;gap:8px;flex-wrap:wrap}button{border:0;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}.primary{background:#2e80ff;color:#fff}.danger{background:#c43f4d;color:#fff}.muted{background:#2b3542;color:#fff}pre{white-space:pre-wrap;word-break:break-word;color:#b8c5d3}.small{font-size:.9rem;color:#9fb0c2}
+:root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color-scheme:dark}
+body{margin:0;background:#0b1016;color:#e7edf4}.wrap{max-width:980px;margin:auto;padding:16px}.card{background:#121a23;border:1px solid #263444;border-radius:14px;padding:14px;margin-bottom:14px}.top{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}.badges{display:flex;gap:7px;flex-wrap:wrap}.badge{padding:5px 9px;border-radius:999px;background:#612;color:#fff;font-size:.85rem;font-weight:700}.ok{background:#164b2a}.info{background:#1d4f7a}.warn{background:#795b16}.event{background:#8f2727}.stream{width:100%;aspect-ratio:16/9;background:#000;object-fit:contain;border-radius:10px}.buttons{display:flex;gap:8px;flex-wrap:wrap}button{border:0;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}.primary{background:#2e80ff;color:#fff}.danger{background:#c43f4d;color:#fff}.muted{background:#2b3542;color:#fff}pre{white-space:pre-wrap;word-break:break-word;color:#b8c5d3}.small{font-size:.9rem;color:#9fb0c2}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}.metric{background:#0d141c;border:1px solid #223140;border-radius:10px;padding:10px}.metric b{display:block;margin-bottom:4px}.detections{font-family:ui-monospace,monospace}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="card top"><div><h2 style="margin:0">Pi Zero 2 WH Camera</h2><div class="small">IMX500 / low-memory profile</div></div><span id="state" class="badge">OFFLINE</span></div>
+  <div class="card top"><div><h2 style="margin:0">Pi Zero 2 WH AI Camera</h2><div class="small">IMX500 + YOLO / low-memory / ZIP-sync</div></div><div class="badges"><span id="state" class="badge">OFFLINE</span><span id="ai" class="badge">AI ?</span><span id="event" class="badge">EVENT IDLE</span><span id="rec" class="badge">REC OFF</span></div></div>
   <div class="card"><img id="stream" class="stream" src="/stream.mjpg" alt="Camera stream"></div>
-  <div class="card buttons">
-    <button class="primary" onclick="callApi('/api/snapshot')">Snapshot</button>
-    <button class="primary" onclick="callApi('/api/record/start')">Start recording</button>
-    <button class="danger" onclick="callApi('/api/record/stop')">Stop recording</button>
-    <button class="muted" onclick="location.reload()">Reload</button>
-  </div>
+  <div class="card buttons"><button class="primary" onclick="callApi('/api/snapshot')">Snapshot</button><button class="primary" onclick="callApi('/api/record/start')">Start recording</button><button class="danger" onclick="callApi('/api/record/stop')">Stop recording</button><button class="muted" onclick="refresh()">Refresh status</button><button class="muted" onclick="location.reload()">Reload stream</button></div>
+  <div class="card grid"><div class="metric"><b>Detections</b><div id="detections" class="detections small">none</div></div><div class="metric"><b>AI event buffer</b><div id="buffer" class="small">-</div></div><div class="metric"><b>Last event</b><div id="lastEvent" class="small">none</div></div></div>
   <div class="card"><pre id="status">Loading...</pre></div>
 </div>
 <script>
-async function refresh(){
-  try{
-    const r=await fetch('/api/status',{cache:'no-store'}); const j=await r.json();
-    document.getElementById('status').textContent=JSON.stringify(j,null,2);
-    const s=document.getElementById('state'); s.textContent=j.ok?'ONLINE':'OFFLINE'; s.className='badge '+(j.ok?'ok':'');
-  }catch(e){document.getElementById('status').textContent=String(e);}
-}
-async function callApi(url){
-  try{const r=await fetch(url,{method:'POST'}); const j=await r.json(); alert(JSON.stringify(j,null,2)); refresh();}catch(e){alert(String(e));}
-}
-setInterval(refresh,3000); refresh();
+function setBadge(id,text,cls){const el=document.getElementById(id);el.textContent=text;el.className='badge '+(cls||'');}
+async function refresh(){try{const r=await fetch('/api/status',{cache:'no-store'});const j=await r.json();document.getElementById('status').textContent=JSON.stringify(j,null,2);setBadge('state',j.ok?'ONLINE':'OFFLINE',j.ok?'ok':'');const a=j.ai||{};setBadge('ai',a.ready?'AI READY':(a.enabled?'AI ERROR':'AI OFF'),a.ready?'info':(a.enabled?'warn':''));setBadge('event',a.event_active?'EVENT ACTIVE':'EVENT IDLE',a.event_active?'event':'');setBadge('rec',j.recording?('REC '+String(j.recording_kind||'ON').toUpperCase()):'REC OFF',j.recording?'event':'');const detections=(a.detections||[]).map(x=>`${x.label} ${(x.confidence*100).toFixed(0)}%`);document.getElementById('detections').textContent=detections.length?detections.join(', '):'none';document.getElementById('buffer').textContent=`${a.prebuffer_seconds||0}s before + ${a.postbuffer_seconds||0}s after`;const e=a.last_event;document.getElementById('lastEvent').textContent=e?`${(e.classes||[]).join(', ')} · ${e.video||e.image||''}`:'none';}catch(e){setBadge('state','OFFLINE','');document.getElementById('status').textContent=String(e);}}
+async function callApi(url){try{const r=await fetch(url,{method:'POST'});const j=await r.json();if(!r.ok)throw new Error(j.error||JSON.stringify(j));alert(JSON.stringify(j,null,2));refresh();}catch(e){alert(String(e));}}
+setInterval(refresh,3000);refresh();
 </script>
 </body>
 </html>

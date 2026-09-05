@@ -7,6 +7,9 @@ recordings/*
 data/*
 !data/.gitkeep
 
+# Downloaded binary AI models
+models/*.rpk
+
 # Generated ZIP packages
 pi-zero2wh-camera.zip
 *.zip

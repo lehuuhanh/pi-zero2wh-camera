@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 import requests
-from flask import Flask, Response, jsonify, render_template, request, send_from_directory, stream_with_context
+from flask import Flask, Response, jsonify, render_template, send_from_directory, stream_with_context
 
 WORKER = f"http://{os.getenv('HOST', '127.0.0.1')}:{os.getenv('WORKER_PORT', '8091')}"
 APP_DIR = Path(os.getenv("APP_DIR", "/home/pi/pi-zero2wh-camera"))
@@ -20,6 +20,19 @@ def worker(method: str, path: str, **kwargs):
     return r
 
 
+def worker_offline_payload() -> dict:
+    return {
+        "ok": False,
+        "worker_online": False,
+        "error": "Camera worker is offline or camera initialization failed.",
+        "worker_url": WORKER,
+        "hint": (
+            "Run rpicam-hello --list-cameras and "
+            "/home/pi/pi-zero2wh-camera/scripts/diagnose-imx500.sh"
+        ),
+    }
+
+
 @app.get("/")
 def index():
     return render_template("index.html")
@@ -29,8 +42,12 @@ def index():
 def status():
     try:
         return jsonify(worker("GET", "/health", timeout=5).json())
+    except requests.ConnectionError:
+        return jsonify(worker_offline_payload()), 503
     except Exception as exc:
-        return jsonify(ok=False, error=str(exc)), 503
+        payload = worker_offline_payload()
+        payload["detail"] = str(exc)
+        return jsonify(payload), 503
 
 
 @app.post("/api/snapshot")
@@ -38,6 +55,8 @@ def snapshot():
     try:
         r = worker("POST", "/snapshot")
         return jsonify(r.json())
+    except requests.ConnectionError:
+        return jsonify(worker_offline_payload()), 503
     except Exception as exc:
         return jsonify(ok=False, error=str(exc)), 500
 
@@ -46,6 +65,8 @@ def snapshot():
 def record_start():
     try:
         return jsonify(worker("POST", "/record/start").json())
+    except requests.ConnectionError:
+        return jsonify(worker_offline_payload()), 503
     except requests.HTTPError as exc:
         return jsonify(ok=False, error=exc.response.text), exc.response.status_code
     except Exception as exc:
@@ -56,6 +77,8 @@ def record_start():
 def record_stop():
     try:
         return jsonify(worker("POST", "/record/stop").json())
+    except requests.ConnectionError:
+        return jsonify(worker_offline_payload()), 503
     except Exception as exc:
         return jsonify(ok=False, error=str(exc)), 500
 
@@ -69,6 +92,12 @@ def stream():
             stream_with_context(upstream.iter_content(chunk_size=128 * 1024)),
             content_type=upstream.headers.get("content-type", "multipart/x-mixed-replace; boundary=frame"),
             headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
+        )
+    except requests.ConnectionError:
+        return Response(
+            "Camera worker offline. Run scripts/diagnose-imx500.sh on the Pi.\n",
+            status=503,
+            mimetype="text/plain",
         )
     except Exception as exc:
         return Response(str(exc), status=503, mimetype="text/plain")

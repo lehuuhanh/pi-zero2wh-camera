@@ -1,0 +1,36 @@
+# Local configuration / credentials
+config/settings.env
+
+# Runtime data
+recordings/*
+!recordings/.gitkeep
+data/*
+!data/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+
+# Logs / temporary files
+*.log
+*.tmp
+*.swp
+*~
+
+# Local TLS / credentials
+*.key
+*.pem
+*.crt
+.htpasswd
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

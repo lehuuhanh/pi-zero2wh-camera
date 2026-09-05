@@ -18,6 +18,8 @@ command -v zip >/dev/null 2>&1 || {
 DEST="$TMP/pi-zero2wh-camera"
 mkdir -p "$DEST"
 
+# A locally downloaded models/*.rpk file is intentionally included so the
+# resulting ZIP can be copied to another Pi without downloading the model.
 rsync -a \
   --exclude '/.git/' \
   --exclude '/config/settings.env' \
@@ -28,7 +30,12 @@ rsync -a \
   --exclude '*.pyc' \
   "$ROOT"/ "$DEST"/
 
-mkdir -p "$DEST/recordings/manual" "$DEST/recordings/snapshots" "$DEST/data"
+mkdir -p \
+  "$DEST/recordings/manual" \
+  "$DEST/recordings/events" \
+  "$DEST/recordings/snapshots" \
+  "$DEST/data" \
+  "$DEST/models"
 
 rm -f -- "$OUT"
 (
@@ -38,3 +45,8 @@ rm -f -- "$OUT"
 
 echo "Created: $OUT"
 ls -lh "$OUT"
+if [[ -s "$ROOT/models/yolov8n.rpk" ]]; then
+  echo "AI model included in ZIP."
+else
+  echo "AI model not present locally; installer will download it on the target Pi."
+fi

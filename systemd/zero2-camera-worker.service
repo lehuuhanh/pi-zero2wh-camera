@@ -13,7 +13,8 @@ EnvironmentFile=/home/pi/pi-zero2wh-camera/config/settings.env
 Environment=PYTHONUNBUFFERED=1
 ExecStart=/usr/bin/python3 /home/pi/pi-zero2wh-camera/ai_worker/worker.py
 Restart=on-failure
-RestartSec=5
+# Missing/disconnected CSI hardware should not respawn Python every 5 seconds.
+RestartSec=30
 Nice=5
 OOMScoreAdjust=-200
 

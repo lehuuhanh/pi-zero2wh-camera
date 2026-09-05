@@ -12,6 +12,7 @@ Low-memory Raspberry Pi Zero 2 W/WH camera project, tuned for Raspberry Pi AI Ca
 - Web proxy: Waitress on 127.0.0.1:8080
 - Nginx HTTPS: 443
 - Recording: H.264 from the active low-memory stream
+- Video retention: automatically delete video files older than 7 days
 
 ## Install
 
@@ -58,6 +59,50 @@ Open:
 https://PI_IP/
 ```
 
+## Automatic video cleanup
+
+By default, all video files under `recordings/` older than 7 days are deleted automatically. The cleanup recognizes `.h264`, `.264`, `.mp4`, `.mkv`, `.mov`, `.avi`, `.webm`, `.ts`, and `.m4v`. Snapshot images are preserved.
+
+The retention period is configured in `config/settings.env`:
+
+```text
+VIDEO_RETENTION_DAYS=7
+```
+
+The installer enables `zero2-camera-cleanup.timer`, which runs once per day and is persistent across shutdowns.
+
+Check the next cleanup run:
+
+```bash
+systemctl list-timers zero2-camera-cleanup.timer
+```
+
+Run cleanup immediately:
+
+```bash
+sudo systemctl start zero2-camera-cleanup.service
+```
+
+View cleanup logs:
+
+```bash
+journalctl -u zero2-camera-cleanup.service --no-pager
+```
+
+Test the cleanup script directly:
+
+```bash
+/home/pi/pi-zero2wh-camera/scripts/cleanup-videos.sh
+```
+
+To keep videos for 14 days instead, change:
+
+```text
+VIDEO_RETENTION_DAYS=14
+```
+
+then no service restart is required; the next cleanup reads the updated value.
+
 ## Boot configuration
 
 The installer backs up the active `config.txt`, then sets:
@@ -94,6 +139,7 @@ sudo reboot
 ```bash
 journalctl -u zero2-camera-worker -f
 journalctl -u zero2-camera-web -f
+journalctl -u zero2-camera-cleanup.service --no-pager
 ```
 
 ## Uninstall services
@@ -102,4 +148,4 @@ journalctl -u zero2-camera-web -f
 sudo ./uninstall.sh
 ```
 
-The uninstall script preserves recordings and the project directory.
+The uninstall script removes the camera services and cleanup timer but preserves recordings and the project directory.

@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Pi Zero 2 Camera video cleanup daily
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=15m
+Unit=zero2-camera-cleanup.service
+
+[Install]
+WantedBy=timers.target
